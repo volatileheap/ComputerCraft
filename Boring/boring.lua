@@ -28,12 +28,28 @@ global turtle: {
 }
 --]]
 
---Localize Turtle API
-local turtleSuckDown = turtle.suckDown()
+--Localize APIs
+local turtleBack = turtle.back()
+local turtleDig = turtle.dig()
+local turtleDigDown = turtle.digDown()
+local turtleDigUp = turtle.digUp()
+local turtleDown = turtle.down()
+local turtleDropDown = turtle.dropDown()
+local turtleForward = turtle.forward()
+local turtleGetFuelLevel = turtle.getFuelLevel()
+local turtleGetFuelLimit = turtle.getFuelLimit()
+local turtleGetItemCount = turtle.getItemCount()
+local turtleGetItemDetail = turtle.getItemDetail()
+local turtleInspect = turtle.inspect()
+local turtleInspectUp = turtle.inspectUp()
+local turtlePlaceDown = turtle.placeDown()
+local turtleRefuel = turtle.refuel()
+local turtleSelect = turtle.select()
 local turtleTransferTo = turtle.transferTo()
 local turtleTurnLeft = turtle.turnLeft()
 local turtleTurnRight = turtle.turnRight()
 local turtleUp = turtle.up()
+local osSleep = os.sleep()
 
 local fallingBlockSettleTime = 0.3 --Minimum 0.25 for 1 block fall settle
 
@@ -44,6 +60,7 @@ local down = "down"
 local left = "left"
 local right = "right"
 local back = "back"
+
 local facing = forward
 
 --Orientation-based turtle turn wrapper
@@ -51,10 +68,10 @@ local function turn(orientation)
   if orientation == left then
     turtleTurnLeft()
   elseif orientation == right then
-    turtle.turnRight()
+    turtleTurnRight()
   elseif orientation == back then
-    turtle.turnLeft()
-    turtle.turnLeft()
+    turtleTurnLeft()
+    turtleTurnLeft()
   end
 end
 
@@ -115,21 +132,21 @@ local blockSuccessUp, blockDataUp, blockUp = true
 local function fallingBlock()
   blockNotSteady = true
   while blockNotSteady do
-    blockSuccess, blockData = turtle.inspect()
-    blockSuccessUp, blockDataUp = turtle.inspectUp()
+    blockSuccess, blockData = turtleInspect()
+    blockSuccessUp, blockDataUp = turtleInspectUp()
     blockFront = blockData.name
     blockUp = blockDataUp.name
     fallingBLockState = 0
     if blockFront == "minecraft:gravel" or blockFront == "minecraft:sand" then
       fallingBLockState = 1
-      turtle.dig()
+      turtleDig()
     end
     if blockUp == "minecraft:gravel" or blockUp == "minecraft:sand" then
       fallingBLockState = 2
-      turtle.digUp()
+      turtleDigUp()
     end
     if fallingBLockState ~= 0 then
-      os.sleep(fallingBlockSettleTime)
+      osSleep(fallingBlockSettleTime)
     else
       blockNotSteady = false
       break
@@ -139,6 +156,6 @@ end
 
 local function dig(orientation)
   if orientation == forward then
-    turtle.dig()
+    turtleDig()
   end
 end
