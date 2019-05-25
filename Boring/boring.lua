@@ -1,5 +1,6 @@
 --Config
 local boreWidth = 4 --Tunnel width in 4-block areas
+local autoRefuelOnOffload = true
 
 --Turtle API function list
 --[[
@@ -42,6 +43,10 @@ local turtleGetItemCount = turtle.getItemCount()
 local turtleGetItemDetail = turtle.getItemDetail()
 local turtleInspect = turtle.inspect()
 local turtleInspectUp = turtle.inspectUp()
+local turtleInspectDown = turtle.inspectDown()
+local turtleDetect = turtle.detect()
+local turtleDetectUp = turtle.detectUp()
+local turtleDetectDown = turtle.detectDown()
 local turtlePlaceDown = turtle.placeDown()
 local turtleRefuel = turtle.refuel()
 local turtleSelect = turtle.select()
@@ -124,28 +129,35 @@ local function face(side)
   end
 end
 
---Variable assign-lookup optimization
-local blockNotSteady, fallingBLockState = true
+local blockNotSteady, fallingBlockState = true
 local blockSuccess, blockData, blockFront = true
 local blockSuccessUp, blockDataUp, blockUp = true
+local blockDetect, blockDetectUp, blockDetectDown = false
 
+--TODO block position sleep optimization (if applicable: dig front and up, then sleep)
+--TODO block-item name assign
 local function fallingBlock()
   blockNotSteady = true
+  blockDetect = turtleDetect()
+  blockDetectUp = turtleDetectUp()
+  if not blockDetect and not blockDetectUp then
+    blockNotSteady = false
+  end
   while blockNotSteady do
     blockSuccess, blockData = turtleInspect()
     blockSuccessUp, blockDataUp = turtleInspectUp()
     blockFront = blockData.name
     blockUp = blockDataUp.name
-    fallingBLockState = 0
+    fallingBlockState = 0
     if blockFront == "minecraft:gravel" or blockFront == "minecraft:sand" then
-      fallingBLockState = 1
+      fallingBlockState = 1
       turtleDig()
     end
     if blockUp == "minecraft:gravel" or blockUp == "minecraft:sand" then
-      fallingBLockState = 2
+      fallingBlockState = 2
       turtleDigUp()
     end
-    if fallingBLockState ~= 0 then
+    if fallingBlockState ~= 0 then
       osSleep(fallingBlockSettleTime)
     else
       blockNotSteady = false
@@ -156,6 +168,88 @@ end
 
 local function dig(orientation)
   if orientation == forward then
+    fallingBlock()
     turtleDig()
+  elseif orientation == up then
+    fallingBlock()
+    turtleDigUp()
+  elseif orientation == down then
+    turtleDigDown()
   end
 end
+
+local inventorySlotItemCount = true
+local isInventoryFull = false
+
+local function checkInventoryFull()
+  inventorySlotItemCount = turtleGetItemCount(13)
+  if inventorySlotItemCount == 0 then
+    return false
+  else
+    return true
+  end
+end
+
+local function digCurrent()
+  dig(up)
+  dig(down)
+end
+
+local function digForward()
+  dig(forward)
+  turtleForward()
+  digCurrent()
+end
+
+local fuelLevel = true
+local fuelLimit = true
+local function checkFuel()
+  fuelLevel = turtleGetFuelLevel()
+  fuelLimit = turtleGetFuelLimit()
+  if (fuelLevel / fuelLimit) * 100 < 1 then --Less than 1% fuel remaining
+    return false
+  else
+    return true
+  end
+end
+
+local selectedSlot = 1
+
+local function refuel(coalOnly, exposedSlot, slot)
+  if coalOnly then
+    turtleSelect(14)
+    turtleRefuel()
+  else
+    if exposedSlot and selectedSlot ~= nil then
+      turtleSelect(slot)
+      turtleRefuel()
+    else
+      while selectedSlot < 15 do --Include coal slot
+        turtleSelect(selectedSlot)
+        turtleRefuel()
+        selectedSlot = selectedSlot + 1
+      end
+    end
+  end
+  turtleSelect(1)
+  selectedSlot = 1
+end
+
+local function offload()
+  selectedSlot = 1
+  if not autoRefuelOnOffload then
+    while selectedSlot < 14 do
+      turtleSelect(selectedSlot)
+      turtleDropDown()
+      selectedSlot = selectedSlot + 1
+    end
+  else
+    while selectedSlot < 15 do --Include coal slot
+      refuel(false, true, selectedSlot)
+      turtleDropDown()
+      selectedSlot = selectedSlot + 1
+    end
+  end
+  turtleSelect(1)
+end
+
