@@ -1,33 +1,7 @@
 --Config
 local boreWidth = 4 --Tunnel width in 4-block areas
 local autoRefuelOnOffload = true
-
---Turtle API function list
---[[
-global turtle: {
-  back: function,
-  dig: function,
-  digDown: function,
-  digUp: function,
-  down: function,
-  dropDown: function,
-  forward: function,
-  getFuelLevel: function,
-  getFuelLimit: function,
-  getItemCount: function,
-  getItemDetail: function,
-  inspect: function,
-  inspectUp: function,
-  placeDown: function,
-  refuel: function,
-  select: function,
-  suckDown: function,
-  transferTo: function,
-  turnLeft: function,
-  turnRight: function,
-  up: function,
-}
---]]
+local paranoid = true --Extra conditional checks
 
 --Localize APIs
 local turtleBack = turtle.back()
@@ -57,6 +31,7 @@ local turtleUp = turtle.up()
 local osSleep = os.sleep()
 
 local fallingBlockSettleTime = 0.3 --Minimum 0.25 for 1 block fall settle
+local operational = true
 
 --Define orientation constants
 local forward = "forward"
@@ -66,7 +41,17 @@ local left = "left"
 local right = "right"
 local back = "back"
 
-local facing = forward
+--Define block constants
+local gravel = "minecraft:gravel"
+local sand = "minecraft:sand"
+
+--Define algorithm constants
+local baseRight = "base:right"
+local interRight = "inter:right"
+local finalRight = "final:right"
+local baseLeft = "base:left"
+local interLeft = "inter:left"
+local finalLeft = "final:left"
 
 --Orientation-based turtle turn wrapper
 local function turn(orientation)
@@ -80,62 +65,11 @@ local function turn(orientation)
   end
 end
 
---Cached orientation manager
-local function face(side)
-  if facing == forward then
-    if side == right then
-      facing = right
-      turn(right)
-    elseif side == left then
-      facing = left
-      turn(left)
-    elseif side == back then
-      facing = back
-      turn(back)
-    end
-  elseif facing == right then
-    if side == right then
-      facing = back
-      turn(right)
-    elseif side == left then
-      facing = forward
-      turn(left)
-    elseif side == back then
-      facing = left
-      turn(back)
-    end
-  elseif facing == left then
-    if side == right then
-      facing = forward
-      turn(right)
-    elseif side == left then
-      facing = back
-      turn(left)
-    elseif side == back then
-      facing = right
-      turn(back)
-    end
-  elseif facing == back then
-    if side == right then
-      facing = left
-      turn(right)
-    elseif side == left then
-      facing = right
-      turn(left)
-    elseif side == back then
-      facing = forward
-      turn(back)
-    end
-  end
-end
-
 local blockNotSteady, fallingBlockState = true
 local blockSuccess, blockData, blockFront = true
 local blockSuccessUp, blockDataUp, blockUp = true
 local blockDetect, blockDetectUp, blockDetectDown = false
 
---TODO block position sleep optimization (if applicable: dig front and up, then sleep)
---TODO block-item name assign
 local function fallingBlock()
   blockNotSteady = true
   blockDetect = turtleDetect()
@@ -149,12 +83,21 @@ local function fallingBlock()
     blockFront = blockData.name
     blockUp = blockDataUp.name
     fallingBlockState = 0
-    if blockFront == "minecraft:gravel" or blockFront == "minecraft:sand" then
-      fallingBlockState = 1
-      turtleDig()
+    if blockFront == gravel or blockFront == sand then
+      if blockUp == gravel or blockUp == sand then
+        fallingBlockState = 1
+      else
+        fallingBlockState = 2
+      end
+    elseif blockUp == gravel or blockUp == sand then
+      fallingBlockState = 3
     end
-    if blockUp == "minecraft:gravel" or blockUp == "minecraft:sand" then
-      fallingBlockState = 2
+    if fallingBlockState == 1 then
+      turtleDig()
+      turtleDigUp()
+    elseif fallingBlockState == 2 then
+      turtleDig()
+    elseif fallingBlockState == 3 then
       turtleDigUp()
     end
     if fallingBlockState ~= 0 then
@@ -179,7 +122,6 @@ local function dig(orientation)
 end
 
 local inventorySlotItemCount = true
-local isInventoryFull = false
 
 local function checkInventoryFull()
   inventorySlotItemCount = turtleGetItemCount(13)
@@ -207,6 +149,7 @@ local function checkFuel()
   fuelLevel = turtleGetFuelLevel()
   fuelLimit = turtleGetFuelLimit()
   if (fuelLevel / fuelLimit) * 100 < 1 then --Less than 1% fuel remaining
+    operational = false
     return false
   else
     return true
@@ -253,3 +196,39 @@ local function offload()
   turtleSelect(1)
 end
 
+local function tryOffload()
+  if checkInventoryFull() then
+    turtleSelect(16)
+    turtlePlaceDown()
+    offload()
+    turtleSelect(16)
+    turtleDigDown()
+    turtleSelect(1)
+  end
+end
+
+local function move(blocks)
+  if not paranoid then
+    for block=1, blocks do
+      turtleForward()
+    end
+  else
+    for block=1, blocks do
+      blockDetect = turtleDetect()
+      if not blockDetect then
+        turtleForward()
+      else
+        operational = false
+      end
+    end
+  end
+end
+
+local function digRow()
+  digForward()
+  digForward()
+  digForward()
+end
+
+local function digChunk(algorithm)
+end
