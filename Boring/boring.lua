@@ -1,5 +1,7 @@
-local boreWidth = 4 --Tunnel width in 4-block chunks
+--Config
+local boreWidth = 4 --Tunnel width in 4-block areas
 
+--Turtle API function list
 --[[
 global turtle: {
   back: function,
@@ -26,9 +28,14 @@ global turtle: {
 }
 --]]
 
-local turtle = turtle
+--Localize Turtle API
+local turtleSuckDown = turtle.suckDown()
+local turtleTransferTo = turtle.transferTo()
+local turtleTurnLeft = turtle.turnLeft()
+local turtleTurnRight = turtle.turnRight()
+local turtleUp = turtle.up()
 
-local fallingBlockSettleTime = 0.3 --Minimum 0.25 for 1 block settle
+local fallingBlockSettleTime = 0.3 --Minimum 0.25 for 1 block fall settle
 
 --Define orientation constants
 local forward = "forward"
@@ -42,7 +49,7 @@ local facing = forward
 --Orientation-based turtle turn wrapper
 local function turn(orientation)
   if orientation == left then
-    turtle.turnLeft()
+    turtleTurnLeft()
   elseif orientation == right then
     turtle.turnRight()
   elseif orientation == back then
@@ -101,39 +108,37 @@ local function face(side)
 end
 
 --Variable assign-lookup optimization
-local blockNotSteady, falingBLockState = true
+local blockNotSteady, fallingBLockState = true
 local blockSuccess, blockData, blockFront = true
 local blockSuccessUp, blockDataUp, blockUp = true
 
 local function fallingBlock()
+  blockNotSteady = true
   while blockNotSteady do
     blockSuccess, blockData = turtle.inspect()
     blockSuccessUp, blockDataUp = turtle.inspectUp()
     blockFront = blockData.name
     blockUp = blockDataUp.name
-    falingBLockState = 0
+    fallingBLockState = 0
     if blockFront == "minecraft:gravel" or blockFront == "minecraft:sand" then
-      falingBLockState = 1
+      fallingBLockState = 1
       turtle.dig()
     end
     if blockUp == "minecraft:gravel" or blockUp == "minecraft:sand" then
-      falingBLockState = 2
+      fallingBLockState = 2
       turtle.digUp()
     end
-    if falingBLockState ~= 0 then
+    if fallingBLockState ~= 0 then
       os.sleep(fallingBlockSettleTime)
     else
-      blockNotSteady = true
+      blockNotSteady = false
       break
     end
   end
-  blockNotSteady = true
 end
 
---[[
 local function dig(orientation)
   if orientation == forward then
     turtle.dig()
   end
 end
---]]
