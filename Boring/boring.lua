@@ -1,5 +1,5 @@
 --Config
-local boreWidth = 4 --Tunnel width in 4-block areas
+local boreWidth = 6 --Tunnel width in 4-block areas
 local autoRefuelOnOffload = true
 local paranoid = true --Extra conditional checks
 
@@ -30,8 +30,9 @@ local turtleTurnRight = turtle.turnRight()
 local turtleUp = turtle.up()
 local osSleep = os.sleep()
 
-local fallingBlockSettleTime = 0.3 --Minimum 0.25 for 1 block fall settle
+local fallingBlockSettleTime = 0.3 --Minimum 0.25 for settling after 1 block fall (0.3 is 1 tick extra)
 local operational = true
+local previousAlgorithm = nil
 
 --Define orientation constants
 local forward = "forward"
@@ -52,6 +53,9 @@ local finalRight = "final:right"
 local baseLeft = "base:left"
 local interLeft = "inter:left"
 local finalLeft = "final:left"
+
+local place = "place"
+local obtain = "obtain"
 
 --Orientation-based turtle turn wrapper
 local function turn(orientation)
@@ -114,8 +118,9 @@ local function dig(orientation)
     fallingBlock()
     turtleDig()
   elseif orientation == up then
-    fallingBlock()
     turtleDigUp()
+    osSleep(fallingBlockSettleTime)
+    fallingBlock()
   elseif orientation == down then
     turtleDigDown()
   end
@@ -225,10 +230,70 @@ local function move(blocks)
 end
 
 local function digRow()
+  digCurrent()
   digForward()
   digForward()
   digForward()
 end
 
-local function digChunk(algorithm)
+local function digTurn(side)
+  turn(side)
+  digForward()
+  turn(side)
 end
+
+--Algorithm init
+--Release with no intermediate chunk loaders at boreWidth 6
+--boreWidth min 2 until chunkloader 2D optimization
+local intermediateCount = true
+local intermediateChunkLoaderCount = nil
+if boreWidth < 7 then
+  if boreWidth > 1 then
+    intermediateCount = boreWidth - 2
+  end
+end
+
+--[[
+Chunkloader pending optimizations
+1D : Maximize the distance the turtle can go before despawning, stay within extreme chunk boundaries
+2D : Do not place a new chunkloader on every algorithm shift
+3D : Add and optimize mining height (Currently constrained at 3 blocks)
+--]]
+
+local function chunkLoader(command)
+  if command ~= nil then
+    turtleSelect(15)
+    if command == place then
+      turtlePlaceDown()
+    elseif command == obtain then
+      turtleDigDown()
+    end
+    turtleSelect(1)
+  else
+  end
+end
+
+local function loader(currentAlgorithm)
+  if previousAlgorithm == nil then
+    chunkLoader(place)
+  end
+  previousAlgorithm = currentAlgorithm
+end
+
+local function digChunk(algorithm)
+  if algorithm == baseRight then
+    loader(algorithm)
+    turn(left)
+    digRow()
+    digTurn(right)
+    digRow()
+    digTurn(left)
+    digRow()
+    digTurn(right)
+    digRow()
+  end
+end
+
+dig(up)
+turtleUp()
+digForward()
